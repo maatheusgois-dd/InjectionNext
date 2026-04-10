@@ -49,6 +49,7 @@ class InjectionServer: SimpleSocket {
 
     class func alert(_ msg: String) {
         NSLog("\(APP_PREFIX)\(APP_NAME) \(msg)")
+        LogBuffer.shared.append("\(APP_NAME) \(msg)", level: "alert")
         lastAlert = NSAlert()
         lastAlert?.messageText = "\(self)"
         lastAlert?.informativeText = msg
@@ -61,6 +62,7 @@ class InjectionServer: SimpleSocket {
     @discardableResult
     override public class func error(_ message: String) -> Int32 {
         let msg = String(format:message, strerror(errno))
+        LogBuffer.shared.append(msg, level: "error")
         DispatchQueue.main.async { alert(msg) }
         return -1
     }
@@ -75,6 +77,7 @@ class InjectionServer: SimpleSocket {
     // Write message into Xcode console of client app.
     open func log(_ msg: String) {
         NSLog("\(APP_PREFIX)\(APP_NAME) \(msg)")
+        LogBuffer.shared.append(msg, level: "info")
         sendCommand(.log, with: APP_PREFIX+msg)
     }
     open func error(_ msg: String) {
