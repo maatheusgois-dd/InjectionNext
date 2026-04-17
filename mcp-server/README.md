@@ -5,7 +5,7 @@ MCP (Model Context Protocol) server that lets AI agents control InjectionNext �
 ## Prerequisites
 
 - **macOS** with Xcode installed
-- **Node.js** 18+
+- **Node.js** 18.14.1+
 - **InjectionNext.app** built from this repo (with ControlServer support)
 
 ## Step 1: Build InjectionNext with ControlServer
@@ -35,14 +35,28 @@ Optionally copy it to `/Applications`:
 cp -R ~/Library/Developer/Xcode/DerivedData/InjectionNext-*/Build/Products/Debug/InjectionNext.app /Applications/
 ```
 
-## Step 2: Install the MCP server
+## Step 2: Enable the ControlServer
+
+The TCP control server is **opt-in**. Enable it via a UserDefault before launching the app:
+
+```bash
+defaults write com.johnholdsworth.InjectionNext mcpServer -bool true
+```
+
+To disable it later:
+
+```bash
+defaults delete com.johnholdsworth.InjectionNext mcpServer
+```
+
+## Step 3: Install the MCP server
 
 ```bash
 cd mcp-server
 npm install
 ```
 
-## Step 3: Configure Cursor
+## Step 4: Configure Cursor
 
 Add to your Cursor MCP config at `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (per-project):
 
@@ -57,9 +71,9 @@ Add to your Cursor MCP config at `~/.cursor/mcp.json` (global) or `.cursor/mcp.j
 }
 ```
 
-Replace both paths with the real locations. **Use the full path to `node`**, not just `"node"`: Cursor is often launched from the Dock without your shell profile, so **nvm/fnm/Homebrew `node` may be missing from `PATH`** and the MCP server will fail to start silently or with “spawn node ENOENT”. Use `which node` in Terminal to get the path.
+Replace both paths with the real locations. **Use the full path to `node`**, not just `"node"`: Cursor is often launched from the Dock without your shell profile, so **nvm/fnm/Homebrew `node` may be missing from `PATH`** and the MCP server will fail to start silently or with "spawn node ENOENT". Use `which node` in Terminal to get the path.
 
-## Step 4: Launch InjectionNext
+## Step 5: Launch InjectionNext
 
 Start the app before using the MCP tools:
 
@@ -71,7 +85,7 @@ open ~/Library/Developer/Xcode/DerivedData/InjectionNext-*/Build/Products/Debug/
 
 You should see the InjectionNext icon in the menu bar.
 
-## Step 5: Test it
+## Step 6: Test it
 
 ### Quick test from terminal (no MCP needed)
 
@@ -120,25 +134,27 @@ or:
 | `set_xcode_path` | Point to a different Xcode.app |
 | `get_logs` | Read debug console (supports `since` for polling) |
 | `clear_logs` | Clear the log buffer |
+| `get_injection_status` | Real-time injection lifecycle events per file |
+| `clear_injection_events` | Clear the injection event history |
 
 ## Architecture
 
 ```
 ┌─────────────┐       TCP :8919        ┌──────────────────────┐
-│  MCP Server  │◄─────────────────────►│  InjectionNext.app   │
-│  (Node.js)   │   JSON commands/resp  │  ┌─────────────────┐ │
-│              │                        │  │  ControlServer   │ │
-│  stdio ↕     │                        │  │  (TCP listener)  │ │
-│              │                        │  └────────┬────────┘ │
-│  Cursor /    │                        │           │          │
-│  AI Agent    │                        │  ┌────────▼────────┐ │
-└─────────────┘                        │  │  AppDelegate     │ │
-                                       │  │  IBActions        │ │
+│  MCP Server │◄─────────────────────►│  InjectionNext.app   │
+│  (Node.js)  │   JSON commands/resp  │  ┌─────────────────┐ │
+│             │                        │  │  ControlServer  │ │
+│  stdio ↕    │                        │  │  (TCP listener) │ │
+│             │                        │  └────────┬────────┘ │
+│  Cursor /   │                        │           │          │
+│  AI Agent   │                        │  ┌────────▼────────┐ │
+└─────────────┘                        │  │  AppDelegate    │ │
+                                       │  │  IBActions      │ │
                                        │  └────────┬────────┘ │
                                        │           │          │
                                        │  ┌────────▼────────┐ │
-                                       │  │  LogBuffer       │ │
-                                       │  │  (ring buffer)   │ │
+                                       │  │  LogBuffer      │ │
+                                       │  │  (ring buffer)  │ │
                                        │  └─────────────────┘ │
                                        └──────────────────────┘
 ```
@@ -146,7 +162,7 @@ or:
 ## Troubleshooting
 
 **MCP tools missing or server fails immediately**
-- Use the **absolute path to `node`** in `mcp.json` (see Step 3). Dock-launched Cursor usually does not load nvm.
+- Use the **absolute path to `node`** in `mcp.json` (see Step 4). Dock-launched Cursor usually does not load nvm.
 - If the app is running, `echo '{"action":"status"}' | nc -w 3 localhost 8919` should return JSON; if that works but MCP does not, fix Cursor config or restart Cursor after editing `mcp.json`.
 
 **"Cannot connect to InjectionNext on port 8919"**

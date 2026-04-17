@@ -80,9 +80,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // fired while the main thread was inside malloc).
         signal(SIGPIPE, SIG_IGN)
 
-        ControlServer.start()
-
         let config = ConfigStore.shared
+
+        if config.mcpServer {
+            ControlServer.start()
+        }
+
         enableDevicesEnabled = config.devicesEnabled
         applyDeviceSettings(enabled: enableDevicesEnabled)
 

@@ -304,6 +304,11 @@ final class ConfigStore: ObservableObject {
     @Published var benchmarking: Bool {
         didSet { ud.set(benchmarking, forKey: "benchmarking") }
     }
+    /// Opt-in MCP server (ControlServer + LogBuffer). Default off; enable with:
+    /// `defaults write com.johnholdsworth.InjectionNext mcpServer -bool true`
+    @Published var mcpServer: Bool {
+        didSet { ud.set(mcpServer, forKey: "mcpServer") }
+    }
 
     // MARK: - Init
 
@@ -356,6 +361,7 @@ final class ConfigStore: ObservableObject {
         // Advanced
         self.verboseLogging = ud.bool(forKey: "verboseLogging")
         self.benchmarking = ud.bool(forKey: "benchmarking")
+        self.mcpServer = ud.bool(forKey: "mcpServer")
 
         // Auto-detect running Xcode on launch
         if ud.string(forKey: "XcodePath") == nil,
@@ -462,6 +468,7 @@ final class ConfigStore: ObservableObject {
         injectionHost = "127.0.0.1"
         verboseLogging = false
         benchmarking = false
+        mcpServer = false
     }
 }
 
