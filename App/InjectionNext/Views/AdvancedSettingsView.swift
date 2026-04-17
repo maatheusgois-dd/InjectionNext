@@ -28,7 +28,13 @@ struct AdvancedSettingsView: View {
             Section {
                 Picker("dlopen Mode", selection: $config.dlOpenMode) {
                     ForEach(DLOpenMode.allCases) { mode in
-                        Text(mode.rawValue).tag(mode)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(mode.rawValue)
+                            Text(mode.shortDescription)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .tag(mode)
                     }
                 }
                 .help(config.dlOpenMode.helpText)
@@ -36,6 +42,7 @@ struct AdvancedSettingsView: View {
                 Text(config.dlOpenMode.helpText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             } header: {
                 Label("Dynamic Loader", systemImage: "square.stack.3d.up")
             } footer: {
