@@ -9,6 +9,8 @@
 import SwiftUI
 import Combine
 import Popen
+import DLKit
+import Darwin
 
 // MARK: - Enums
 
@@ -57,6 +59,50 @@ enum TraceMode: String, CaseIterable, Identifiable {
     case injected = "Injected Functions"
     case all = "All Functions"
     var id: String { rawValue }
+}
+
+/// Preset flag combinations passed to `dlopen` when DLKit loads an
+/// injected dylib. Exposed as `DLKit.dlOpenMode` for overrides.
+enum DLOpenMode: String, CaseIterable, Identifiable {
+    /// Recommended default: bind symbols lazily, expose globally so
+    /// later injections can resolve each other's symbols.
+    case lazyGlobal = "Lazy + Global (default)"
+    /// Eager resolution, globally visible so injected modules can
+    /// cross-reference each other.
+    case nowGlobal  = "Now + Global"
+    /// Eager resolution, kept in the loader's local namespace — symbols
+    /// are NOT merged into the global table. Strictest isolation.
+    case now        = "Now (local only)"
+    var id: String { rawValue }
+
+    var flags: Int32 {
+        switch self {
+        case .lazyGlobal: return RTLD_LAZY | RTLD_GLOBAL
+        case .nowGlobal:  return RTLD_NOW  | RTLD_GLOBAL
+        case .now:        return RTLD_NOW
+        }
+    }
+
+    /// Short one-liner shown under the picker.
+    var shortDescription: String {
+        switch self {
+        case .lazyGlobal: return "Default. Fast loads, symbols resolve on first call."
+        case .nowGlobal:  return "Eager + shared. Fails fast when symbols are missing."
+        case .now:        return "Eager + isolated. No cross-injection symbol sharing."
+        }
+    }
+
+    /// Longer help text — suitable for tooltips / info popovers.
+    var helpText: String {
+        switch self {
+        case .lazyGlobal:
+            return "RTLD_LAZY | RTLD_GLOBAL — resolves symbols on first use and publishes them to the global namespace. Best for normal hot-reload; later injections can see symbols defined by earlier ones."
+        case .nowGlobal:
+            return "RTLD_NOW | RTLD_GLOBAL — resolves every symbol at load time and publishes them globally. Surfaces missing symbols immediately; useful when diagnosing failed injections while keeping cross-dylib references working."
+        case .now:
+            return "RTLD_NOW — resolves every symbol at load time but keeps them private to this dylib (no RTLD_GLOBAL). Strict isolation: each injection is self-contained and cannot satisfy symbol lookups for later injections. Use when tracking down leaks between injected modules."
+        }
+    }
 }
 
 // MARK: - Xcode Installation
@@ -304,6 +350,12 @@ final class ConfigStore: ObservableObject {
     @Published var benchmarking: Bool {
         didSet { ud.set(benchmarking, forKey: "benchmarking") }
     }
+    @Published var dlOpenMode: DLOpenMode {
+        didSet {
+            ud.set(dlOpenMode.rawValue, forKey: "dlOpenMode")
+            DLKit.dlOpenMode = dlOpenMode.flags
+        }
+    }
     /// Opt-in MCP server (ControlServer + LogBuffer). Default off; enable with:
     /// `defaults write com.johnholdsworth.InjectionNext mcpServer -bool true`
     @Published var mcpServer: Bool {
@@ -362,6 +414,8 @@ final class ConfigStore: ObservableObject {
         self.verboseLogging = ud.bool(forKey: "verboseLogging")
         self.benchmarking = ud.bool(forKey: "benchmarking")
         self.mcpServer = ud.bool(forKey: "mcpServer")
+        self.dlOpenMode = DLOpenMode(rawValue: ud.string(forKey: "dlOpenMode") ?? "") ?? .lazyGlobal
+        DLKit.dlOpenMode = self.dlOpenMode.flags
 
         // Auto-detect running Xcode on launch
         if ud.string(forKey: "XcodePath") == nil,
@@ -469,6 +523,7 @@ final class ConfigStore: ObservableObject {
         verboseLogging = false
         benchmarking = false
         mcpServer = false
+        dlOpenMode = .lazyGlobal
     }
 }
 
